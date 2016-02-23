@@ -1,5 +1,5 @@
 """
-    Catalog App Initialization
+    Catalog App Initialization.
     Initialize the Flask framework.
     Initialize the SQLAlchemy ORM.
 """
@@ -16,7 +16,7 @@ app.config.from_object('config')
 
 # Connect to database
 engine = create_engine(app.config['DATABASE_URI'])
-    
+
 # Get a database session object
 DBSession = sessionmaker(bind=engine)
 db_session = DBSession()

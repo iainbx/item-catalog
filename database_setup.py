@@ -17,16 +17,16 @@ engine = create_engine(DATABASE_URI)
 DBSession = sessionmaker(bind=engine)
 db_session = DBSession()
 
-    
+
 def main():
     clearDb()
 
 
 def clearDb():
-    """Drop and create tables"""
+    """ Drop and create tables """
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
-    
+
 
 if __name__ == '__main__':
     main()
