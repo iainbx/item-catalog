@@ -33,16 +33,16 @@ def catalog():
                            categories=categories, latest_items=items)
 
 
-# Show catalog in JSON format
 @app.route('/catalog/json')
 def catalogJSON():
+    """ Return all catalog items in JSON format """
     categories = db_session.query(Category).all()
     return jsonify(categories=[category.serialize for category in categories])
 
 
-# Show latest items in Atom format
 @app.route('/catalog/recent.atom')
 def catalogRecentAtom():
+    """ Return latest items in Atom format """
     items = db_session.query(Item).order_by(Item.pub_date.desc()).limit(10)
     feed = AtomFeed('Recent Items', feed_url=request.url, url=request.url_root)
     for item in items:
@@ -55,10 +55,10 @@ def catalogRecentAtom():
     return feed.get_response()
 
 
-# Show category
 @app.route('/category/<name>/')
 @app.route('/category/<name>/items')
 def category(name):
+    """ View a category of items """
     categories = db_session.query(Category).all()
     category = db_session.query(Category).filter_by(name=name).first()
 
@@ -103,9 +103,11 @@ def newCategory():
     return render_template('new_category.html', form=form)
 
 
-# Edit category
 @app.route('/category/<name>/edit/', methods=['GET', 'POST'])
 def editCategory(name):
+    """ Edit a category """
+
+    # user must be authenticated
     if 'user_id' not in session:
         return redirect('/login')
 
@@ -134,9 +136,11 @@ def editCategory(name):
     return render_template('edit_category.html', category=category, form=form)
 
 
-# Delete category
 @app.route('/category/<name>/delete/', methods=['GET', 'POST'])
 def deleteCategory(name):
+    """ Delete a category """
+
+    # user must be authenticated
     if 'user_id' not in session:
         return redirect('/login')
 
@@ -161,9 +165,9 @@ def deleteCategory(name):
                                category=category, form=form)
 
 
-# Show item
 @app.route('/item/<name>')
 def item(name):
+    """ View an item """
     item = db_session.query(Item).filter_by(name=name).first()
 
     if item is None:
@@ -181,9 +185,12 @@ def uploads(filename):
 
 @app.route('/item/new/', methods=['GET', 'POST'])
 def newItem():
-    """ Create new item """
+    """ Create a new item """
+
+    # user must be authenticated
     if 'user_id' not in session:
         return redirect('/login')
+
     form = ItemForm()
     categories = db_session.query(Category.id, Category.name).all()
     form.category_id.choices = categories
@@ -224,9 +231,11 @@ def newItem():
     return render_template('new_item.html', form=form)
 
 
-# Edit item
 @app.route('/item/<name>/edit/', methods=['GET', 'POST'])
 def editItem(name):
+    """ Edit an item """
+
+    # user must be authenticated
     if 'user_id' not in session:
         return redirect('/login')
 
@@ -246,7 +255,7 @@ def editItem(name):
         filename = item.image
         # check if user uploaded file and sanitize filename
         if form.image.has_file():
-            # gets the filename?
+            # gets the filename, ensuring that it is safe
             filename = secure_filename(form.image.data.filename)
             form.image.data.save(
                 os.path.join(app.config['UPLOAD_FOLDER'], filename))
@@ -266,9 +275,11 @@ def editItem(name):
     return render_template('edit_item.html', item=item, form=form)
 
 
-# Delete item
 @app.route('/item/<name>/delete/', methods=['GET', 'POST'])
 def deleteItem(name):
+    """ Delete an item """
+
+    # user must be authenticated
     if 'user_id' not in session:
         return redirect('/login')
 
@@ -290,12 +301,13 @@ def deleteItem(name):
         return render_template('delete_item.html', item=item, form=form)
 
 
-# AUTHENTICATION #######################
+# AUTHENTICATION ###################################################
 
 
-# login
 @app.route('/login')
 def login():
+    """ View login form """
+
     # create a state token to prevent request forgery
     state = ''.join(random.choice(string.ascii_uppercase + string.digits)
                     for x in range(32))
@@ -306,6 +318,7 @@ def login():
 @app.route('/logout')
 def logout():
     """ Logout of application """
+
     if 'provider' in session:
         if session['provider'] == 'google':
             gdisconnect()
@@ -324,25 +337,6 @@ def logout():
     else:
         flash("You were not logged in")
         return redirect(url_for('catalog'))
-
-
-def createUser(session):
-    """ Create new user record """
-    newUser = User(name=session['username'], email=session[
-                   'email'], picture=session['picture'])
-    db_session.add(newUser)
-    db_session.commit()
-    user = db_session.query(User).filter_by(email=session['email']).one()
-    return user.id
-
-
-def getUserID(email):
-    """ Get user by email address """
-    try:
-        user = db_session.query(User).filter_by(email=email).one()
-        return user.id
-    except:
-        return None
 
 
 @app.route('/gconnect', methods=['POST'])
@@ -419,9 +413,9 @@ def gconnect():
     session['email'] = data['email']
     session['provider'] = 'google'
 
-    # create user if new
     user_id = getUserID(session['email'])
     if not user_id:
+        # Create new user
         user_id = createUser(session)
     session['user_id'] = user_id
 
@@ -436,9 +430,9 @@ def gconnect():
     return output
 
 
-# Google logout
 @app.route('/gdisconnect')
 def gdisconnect():
+    """ Google disconnect """
     if 'access_token' not in session:
         response = make_response(
             json.dumps('Current user not connected.'), 401)
@@ -457,7 +451,7 @@ def gdisconnect():
 
 @app.route('/fbconnect', methods=['POST'])
 def fbconnect():
-    """ Facebook authorization """
+    """ Facebook authentication and authorization """
     if request.args.get('state') != session['state']:
         response = make_response(json.dumps('Invalid state parameter.'), 401)
         response.headers['Content-Type'] = 'application/json'
@@ -505,6 +499,7 @@ def fbconnect():
     # see if user exists
     user_id = getUserID(session['email'])
     if not user_id:
+        # Create new user
         user_id = createUser(session)
     session['user_id'] = user_id
 
@@ -530,3 +525,22 @@ def fbdisconnect():
     h = httplib2.Http()
     result = h.request(url, 'DELETE')[1]
     return "you have been logged out"
+
+
+def createUser(session):
+    """ Create new user record """
+    newUser = User(name=session['username'], email=session[
+                   'email'], picture=session['picture'])
+    db_session.add(newUser)
+    db_session.commit()
+    user = db_session.query(User).filter_by(email=session['email']).one()
+    return user.id
+
+
+def getUserID(email):
+    """ Get user by email address """
+    try:
+        user = db_session.query(User).filter_by(email=email).one()
+        return user.id
+    except:
+        return None
