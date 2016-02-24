@@ -64,5 +64,5 @@ class Item(Base):
             'user_id': self.user_id,
             'category_id': self.category_id,
             'image': self.image,
-            'pub_date': self.pub_date
+            'pub_date': self.pub_date.strftime('%a, %d %b %Y %H:%M:%S GMT')
         }
