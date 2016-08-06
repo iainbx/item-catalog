@@ -3,7 +3,7 @@
 """
 
 
-from catalog import app, db_session
+from catalog import app, db_session, csrf
 from catalog.models import Category, Item, User
 from catalog.forms import CategoryForm, ItemForm
 from datetime import datetime
@@ -339,6 +339,7 @@ def logout():
         return redirect(url_for('catalog'))
 
 
+@csrf.exempt
 @app.route('/gconnect', methods=['POST'])
 def gconnect():
     """ Google authentication and authorization """
@@ -350,10 +351,11 @@ def gconnect():
     # Obtain authorization code
     code = request.data
 
+    secrets_file_path = os.path.join(app.config['APP_ROOT'],'google_client_secrets.json')
+
     try:
         # Upgrade the authorization code into a credentials object
-        oauth_flow = flow_from_clientsecrets('google_client_secrets.json',
-                                             scope='')
+        oauth_flow = flow_from_clientsecrets(secrets_file_path, scope='')
         oauth_flow.redirect_uri = 'postmessage'
         credentials = oauth_flow.step2_exchange(code)
     except FlowExchangeError:
@@ -383,7 +385,7 @@ def gconnect():
 
     # Verify that the access token is valid for this app.
     client_id = json.loads(
-        open('google_client_secrets.json', 'r').read())['web']['client_id']
+        open(secrets_file_path, 'r').read())['web']['client_id']
     if result['issued_to'] != client_id:
         response = make_response(
             json.dumps("Token's client ID does not match app's."), 401)
@@ -449,6 +451,7 @@ def gdisconnect():
         return response
 
 
+@csrf.exempt
 @app.route('/fbconnect', methods=['POST'])
 def fbconnect():
     """ Facebook authentication and authorization """
@@ -458,10 +461,11 @@ def fbconnect():
         return response
     access_token = request.data
 
-    app_id = json.loads(open('fb_client_secrets.json', 'r').read())[
+    secrets_file_path = os.path.join(app.config['APP_ROOT'],'fb_client_secrets.json')
+    app_id = json.loads(open(secrets_file_path, 'r').read())[
         'web']['app_id']
     app_secret = json.loads(
-        open('fb_client_secrets.json', 'r').read())['web']['app_secret']
+        open(secrets_file_path, 'r').read())['web']['app_secret']
     url = ('https://graph.facebook.com/oauth/access_token?'
            'grant_type=fb_exchange_token&client_id=%s&client_secret=%s'
            '&fb_exchange_token=%s' % (app_id, app_secret, access_token))
